@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: anime-db-postgres
+    environment:
+      POSTGRES_DB: mal_db
+      POSTGRES_USER: mal_user
+      POSTGRES_PASSWORD: your_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mal_user -d mal_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data: 

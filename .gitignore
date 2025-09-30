@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+!*.config.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Database
+*.sql.backup
+*_full_backup.sql
+anime_db_full_backup.sql
+postgres_data/
+redis_data/
+*.db
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Crawler data
+crawler-data/
+*.checkpoint
+
+# OAuth tokens
+tokens.json
+oauth_state.json
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db.mcp.json
+.mcp.json

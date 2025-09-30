@@ -1,0 +1,17 @@
+{
+  "name": "@mal-workspace/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for MAL workspace",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": ["anime", "types", "shared"],
+  "author": "Leo Vainio",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.2"
+  }
+}

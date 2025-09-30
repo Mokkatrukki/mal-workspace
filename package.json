@@ -1,0 +1,52 @@
+{
+  "name": "mal-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo for MyAnimeList database, MCP servers, scrapers, and chat client",
+  "workspaces": [
+    "database/own-mal-db",
+    "mcp-servers/*",
+    "chat-client",
+    "shared/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "install:all": "npm install",
+
+    "db:dev": "npm run dev --workspace=database/own-mal-db",
+    "db:start": "npm run start --workspace=database/own-mal-db",
+    "db:migrate": "npm run db:migrate --workspace=database/own-mal-db",
+    "db:seed": "npm run db:seed --workspace=database/own-mal-db",
+
+    "scraper:anime": "npm run anime --workspace=database/own-mal-db",
+    "scraper:check-stats": "cd database/own-mal-db && npm run dev -- src/scripts/checkDatabaseStats.ts",
+    "scraper:reviews": "cd database/own-mal-db && npm run dev -- src/scripts/reviewCrawler.ts",
+    "scraper:track-growth": "cd database/own-mal-db && npm run dev -- src/scripts/trackGrowth.ts",
+
+    "mcp:anime-search": "npm run start --workspace=mcp-servers/anime-search-mcp",
+    "mcp:mal-user": "npm run start --workspace=mcp-servers/mal-user-mcp",
+    "mcp:recommendation": "npm run start --workspace=mcp-servers/anime-recommendation-mcp",
+    "mcp:build-all": "npm run build --workspace=mcp-servers/anime-search-mcp && npm run build --workspace=mcp-servers/mal-user-mcp && npm run build --workspace=mcp-servers/anime-recommendation-mcp",
+
+    "dev:chat": "npm run dev --workspace=chat-client",
+
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+
+    "start:all": "npm run docker:up && npm run db:start"
+  },
+  "keywords": [
+    "anime",
+    "myanimelist",
+    "mcp",
+    "monorepo",
+    "scraper",
+    "crawler"
+  ],
+  "author": "Leo Vainio",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

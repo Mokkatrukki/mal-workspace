@@ -1,0 +1,771 @@
+openapi: 3.0.3
+info:
+  title: Own MAL Database API
+  version: 1.0.0
+  description: |
+    A local anime database API with advanced search, review analysis, and sentiment insights.
+
+    ## Features
+    - 🔍 Advanced anime search with multiple filters
+    - 📊 Review analysis and sentiment scoring
+    - 🎯 Reception analysis and comparison
+    - 📈 Genre statistics and insights
+    - 🎨 Multiple response formats (standard, clean, compact)
+
+    ## API Versions
+    - **v1 API** (`/api/v1/*`) - Current, recommended version
+    - **Legacy API** (`/api/anime/*`) - Deprecated, will be removed in future
+
+  contact:
+    name: API Support
+    url: https://github.com/your-github-username/own-mal-db
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+  - url: https://api.yourdomain.com
+    description: Production server (configure in deployment)
+
+tags:
+  - name: Anime
+    description: Core anime data endpoints
+  - name: Search
+    description: Search and discovery endpoints
+  - name: Genres
+    description: Genre information and statistics
+  - name: Reviews
+    description: User review data
+  - name: Reception
+    description: Sentiment analysis and reception data
+  - name: Legacy
+    description: Deprecated legacy endpoints
+
+components:
+  schemas:
+    AnimeStandard:
+      type: object
+      properties:
+        mal_id:
+          type: integer
+          example: 5
+        title:
+          type: string
+          example: "Cowboy Bebop"
+        title_english:
+          type: string
+          nullable: true
+        title_japanese:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [TV, Movie, OVA, Special, ONA, Music]
+        episodes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        score:
+          type: number
+          format: float
+        genres:
+          type: array
+          items:
+            type: object
+
+    AnimeClean:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        episodes:
+          type: integer
+        score:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+
+    AnimeCompact:
+      type: object
+      properties:
+        id:
+          type: integer
+        t:
+          type: string
+          description: Title
+        sc:
+          type: number
+          description: Score
+        g:
+          type: array
+          items:
+            type: string
+          description: Genres
+
+    Genre:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        count:
+          type: integer
+        url:
+          type: string
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        user_score:
+          type: integer
+          nullable: true
+        review_text:
+          type: string
+        helpful_count:
+          type: integer
+        sentiment_label:
+          type: string
+          enum: [positive, negative, neutral]
+        sentiment_score:
+          type: number
+        is_preliminary:
+          type: boolean
+        date_posted:
+          type: string
+          format: date-time
+        review_length:
+          type: integer
+
+    Reception:
+      type: object
+      properties:
+        review_count:
+          type: integer
+        sentiment_ratio:
+          type: number
+          description: Ratio of positive to negative reviews
+        score_variance:
+          type: number
+          description: How polarizing the anime is
+        avg_review_length:
+          type: number
+        avg_score:
+          type: number
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        meta:
+          type: object
+          properties:
+            format:
+              type: string
+              enum: [standard, clean, compact]
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+
+  parameters:
+    FormatParam:
+      name: format
+      in: query
+      description: Response format
+      schema:
+        type: string
+        enum: [standard, clean, compact]
+        default: standard
+      example: clean
+
+    QueryParam:
+      name: query
+      in: query
+      description: Search query string
+      schema:
+        type: string
+      example: naruto
+
+    GenresParam:
+      name: genres
+      in: query
+      description: Genre IDs (comma-separated)
+      schema:
+        type: string
+      example: "1,4"
+
+    MinScoreParam:
+      name: min_score
+      in: query
+      description: Minimum MAL score
+      schema:
+        type: number
+        minimum: 0
+        maximum: 10
+      example: 7.5
+
+    MaxScoreParam:
+      name: max_score
+      in: query
+      description: Maximum MAL score
+      schema:
+        type: number
+        minimum: 0
+        maximum: 10
+      example: 9.5
+
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of results per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 25
+        default: 25
+      example: 10
+
+paths:
+  # Root endpoint
+  /:
+    get:
+      summary: API Information
+      description: Get information about the API and available endpoints
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # V1 API ENDPOINTS
+  /api/v1/anime:
+    get:
+      tags: [Anime]
+      summary: Search anime
+      description: |
+        Search for anime with advanced filters.
+        Supports year ranges, popularity filters, airing status, and more.
+      parameters:
+        - $ref: '#/components/parameters/FormatParam'
+        - $ref: '#/components/parameters/QueryParam'
+        - $ref: '#/components/parameters/GenresParam'
+        - $ref: '#/components/parameters/MinScoreParam'
+        - $ref: '#/components/parameters/MaxScoreParam'
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: min_year
+          in: query
+          schema:
+            type: integer
+        - name: max_year
+          in: query
+          schema:
+            type: integer
+        - name: decade
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}s$'
+          example: "2000s"
+        - name: min_popularity
+          in: query
+          schema:
+            type: integer
+        - name: max_popularity
+          in: query
+          schema:
+            type: integer
+        - name: airing_status
+          in: query
+          schema:
+            type: string
+            enum: [airing, finished, upcoming]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [TV, Movie, OVA, Special, ONA, Music]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Successful search
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/v1/anime/{id}:
+    get:
+      tags: [Anime]
+      summary: Get anime by ID
+      description: Get detailed information about a specific anime
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/FormatParam'
+      responses:
+        '200':
+          description: Anime found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: Anime not found
+
+  /api/v1/anime/top:
+    get:
+      tags: [Anime]
+      summary: Get top anime
+      description: Get highest-rated anime by MAL score
+      parameters:
+        - $ref: '#/components/parameters/FormatParam'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/v1/anime/bulk:
+    get:
+      tags: [Anime]
+      summary: Get multiple anime by IDs
+      description: Fetch multiple anime in a single request
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated list of MAL IDs (max 100)
+          schema:
+            type: string
+          example: "5,1,20"
+        - $ref: '#/components/parameters/FormatParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/v1/genres:
+    get:
+      tags: [Genres]
+      summary: Get all genres
+      description: List all available anime genres with counts
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total_genres:
+                        type: integer
+                      genres:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Genre'
+
+  /api/v1/genres/stats:
+    get:
+      tags: [Genres]
+      summary: Get genre statistics
+      description: Get anime count statistics grouped by genre
+      responses:
+        '200':
+          description: Successful response
+
+  /api/v1/reviews/anime/{id}:
+    get:
+      tags: [Reviews]
+      summary: Get anime reviews
+      description: Get paginated reviews for an anime
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [date, helpful, score]
+            default: date
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: preliminary
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Reviews found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      anime_id:
+                        type: integer
+                      reviews:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Review'
+                      pagination:
+                        type: object
+        '404':
+          description: No reviews found
+
+  /api/v1/reviews/anime/{id}/summary:
+    get:
+      tags: [Reviews]
+      summary: Get review summary
+      description: Get aggregated review statistics without full review text
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Summary generated
+        '404':
+          description: Anime not found
+
+  /api/v1/reviews/anime/{id}/sample:
+    get:
+      tags: [Reviews]
+      summary: Get balanced review sample
+      description: Get a balanced sample of positive, negative, and neutral reviews
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 15
+            default: 10
+      responses:
+        '200':
+          description: Sample retrieved
+        '404':
+          description: No reviews found
+
+  /api/v1/reception/anime/{id}:
+    get:
+      tags: [Reception]
+      summary: Get anime reception analysis
+      description: Get detailed sentiment and reception analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reception analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      anime_id:
+                        type: integer
+                      reception_analysis:
+                        $ref: '#/components/schemas/Reception'
+        '404':
+          description: No review data available
+
+  /api/v1/reception/search:
+    get:
+      tags: [Reception]
+      summary: Search by sentiment pattern
+      description: Find anime matching specific sentiment patterns
+      parameters:
+        - name: sentiment_pattern
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - mostly_positive
+              - mostly_negative
+              - highly_polarizing
+              - universally_loved
+              - underrated
+              - overrated
+              - mixed_reception
+        - name: min_reviews
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Results found
+
+  /api/v1/reception/compare:
+    get:
+      tags: [Reception]
+      summary: Compare reception between two anime
+      description: Side-by-side comparison of sentiment metrics
+      parameters:
+        - name: anime_id_1
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: anime_id_2
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comparison generated
+        '404':
+          description: Reception data not found for one or both anime
+
+  /api/v1/reception/insights:
+    get:
+      tags: [Reception]
+      summary: Get database insights
+      description: Get aggregated insights about the entire database
+      parameters:
+        - name: insight_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - sentiment_distribution
+              - polarization_trends
+              - review_engagement
+              - database_overview
+      responses:
+        '200':
+          description: Insights generated
+
+  /api/v1/search/capabilities:
+    get:
+      tags: [Search]
+      summary: Get search capabilities
+      description: Discover available search filters and parameters
+      responses:
+        '200':
+          description: Capabilities listed
+
+  /api/v1/search/seasonal:
+    get:
+      tags: [Search]
+      summary: Get seasonal anime
+      description: Get anime from a specific season
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: season
+          in: query
+          schema:
+            type: string
+            enum: [winter, spring, summer, fall]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 25
+            default: 20
+        - $ref: '#/components/parameters/FormatParam'
+      responses:
+        '200':
+          description: Seasonal anime retrieved
+
+  /api/v1/search/current:
+    get:
+      tags: [Search]
+      summary: Get currently airing anime
+      description: Get anime that are currently airing
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 25
+            default: 20
+        - $ref: '#/components/parameters/FormatParam'
+      responses:
+        '200':
+          description: Current anime retrieved
+
+  # LEGACY API ENDPOINTS (DEPRECATED)
+  /api/anime/search:
+    get:
+      deprecated: true
+      tags: [Legacy]
+      summary: "[DEPRECATED] Search anime"
+      description: |
+        ⚠️ **DEPRECATED**: Use `/api/v1/anime` instead
+
+        This endpoint will be removed in a future version.
+        Migration: `/api/v1/anime?query=...`
+      parameters:
+        - $ref: '#/components/parameters/QueryParam'
+      responses:
+        '200':
+          description: Deprecated endpoint - see X-API-Deprecation headers
+          headers:
+            X-API-Deprecation:
+              schema:
+                type: string
+              description: Deprecation notice
+            X-API-Migration-Guide:
+              schema:
+                type: string
+              description: Link to migration guide
+
+  /api/anime/genres:
+    get:
+      deprecated: true
+      tags: [Legacy]
+      summary: "[DEPRECATED] Get genres"
+      description: |
+        ⚠️ **DEPRECATED**: Use `/api/v1/genres` instead
+      responses:
+        '200':
+          description: Deprecated endpoint
+
+  /api/anime/{id}:
+    get:
+      deprecated: true
+      tags: [Legacy]
+      summary: "[DEPRECATED] Get anime by ID"
+      description: |
+        ⚠️ **DEPRECATED**: Use `/api/v1/anime/{id}` instead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deprecated endpoint
+
+  /api/anime/reviews/{id}:
+    get:
+      deprecated: true
+      tags: [Legacy]
+      summary: "[DEPRECATED] Get reviews"
+      description: |
+        ⚠️ **DEPRECATED**: Use `/api/v1/reviews/anime/{id}` instead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deprecated endpoint
