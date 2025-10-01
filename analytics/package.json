@@ -1,0 +1,33 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "description": "Analytics system for tracking MCP tool usage",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "migrate": "node dist/database.js --migrate",
+    "analytics:summary": "node dist/cli.js summary",
+    "analytics:errors": "node dist/cli.js errors",
+    "analytics:performance": "node dist/cli.js performance",
+    "analytics:journeys": "node dist/cli.js journeys",
+    "analytics:report": "node dist/cli.js report",
+    "analytics:export": "node dist/cli.js export",
+    "analytics:cleanup": "node dist/maintenance.js cleanup",
+    "analytics:backup": "node dist/maintenance.js backup",
+    "analytics:optimize": "node dist/maintenance.js optimize",
+    "seed:test-data": "node dist/seed-data.js"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/sqlite3": "^3.1.11",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

@@ -1,9 +1,63 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { AnalyticsLogger } from "analytics";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 // Base URL for local clean API
 const LOCAL_API_BASE = "http://localhost:3001/api/anime";
+
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Initialize analytics logger with absolute path
+const analytics = new AnalyticsLogger('anime-search-mcp', {
+  dbPath: join(__dirname, '../../../analytics/analytics.db')
+});
+
+// Session ID for this MCP server instance
+let sessionId = AnalyticsLogger.generateSessionId();
+
+// Helper to wrap tool execution with analytics
+async function withAnalytics<T>(
+  toolName: string,
+  params: Record<string, any>,
+  fn: () => Promise<T>
+): Promise<T> {
+  const callId = analytics.startCall({
+    sessionId,
+    toolName,
+    parameters: params
+  });
+
+  const startTime = Date.now();
+
+  try {
+    const result = await fn();
+
+    analytics.endCall(callId, {
+      success: true,
+      executionTimeMs: Date.now() - startTime,
+      resultMetadata: {
+        hasResult: !!result,
+        resultType: typeof result
+      }
+    });
+
+    return result;
+  } catch (error) {
+    analytics.endCall(callId, {
+      success: false,
+      executionTimeMs: Date.now() - startTime,
+      errorType: error instanceof Error ? 'unknown' : 'unknown',
+      errorMessage: error instanceof Error ? error.message : String(error)
+    });
+
+    throw error;
+  }
+}
 
 // Using local API - no rate limiting needed
 
@@ -99,11 +153,12 @@ function getServer() {
   server.tool(
     "getSearchCapabilities",
     "Get a detailed overview of all available anime search/filter capabilities, parameters, and tool usage. Always call this first to discover options.",
-    
+
     {},
     async () => {
-      try {
-        // First, get the actual genres from the API to provide accurate information
+      return withAnalytics("getSearchCapabilities", {}, async () => {
+        try {
+          // First, get the actual genres from the API to provide accurate information
         const genresResponse = await fetch(`${LOCAL_API_BASE}/genres`);
         let availableGenres: any[] = [];
         
@@ -286,6 +341,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -298,8 +354,9 @@ function getServer() {
       user_query: z.string().describe("The user's search request in natural language")
     },
     async ({ user_query }: { user_query: string }) => {
-      try {
-        const query = user_query.toLowerCase();
+      return withAnalytics("suggestSearchStrategy", { user_query }, async () => {
+        try {
+          const query = user_query.toLowerCase();
         
         // Analyze the query for different patterns
         const suggestions = {
@@ -459,6 +516,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -498,9 +556,10 @@ function getServer() {
       page?: number;
       limit?: number;
     }) => {
-      try {
-        // Validate parameters first
-        const validation = validateSearchParams(params);
+      return withAnalytics("searchAnime", params, async () => {
+        try {
+          // Validate parameters first
+          const validation = validateSearchParams(params);
         if (!validation.isValid) {
           return {
             content: [{ 
@@ -613,6 +672,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -621,10 +681,11 @@ function getServer() {
   server.tool(
     "getAnimeDetails",
     "Get comprehensive details for a specific anime by MyAnimeList ID, including synopsis, genres, episodes, and images.",
-    
+
     { id: z.number().int().positive().describe("MyAnimeList ID of the anime to get detailed information for") },
     async ({ id }: { id: number }) => {
-      try {
+      return withAnalytics("getAnimeDetails", { id }, async () => {
+        try {
         const response = await fetch(`${LOCAL_API_BASE}/clean/${id}`);
         
         if (!response.ok) {
@@ -682,8 +743,8 @@ function getServer() {
         };
       } catch (error: any) {
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: JSON.stringify({
               error: true,
               message: `Failed to fetch anime details: ${error.message || 'An unexpected error occurred'}`
@@ -692,16 +753,18 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
   server.tool(
     "getAnimeRecommendations",
     "Find anime recommendations based on a given anime's MyAnimeList ID. Returns similar or related anime.",
-    
+
     { id: z.number().int().positive().describe("MyAnimeList ID of the anime to get recommendations based on") },
     async ({ id }: { id: number }) => {
-      try {
+      return withAnalytics("getAnimeRecommendations", { id }, async () => {
+        try {
         const response = await fetch(`${LOCAL_API_BASE}/recommendations/${id}`);
 
         if (!response.ok) {
@@ -750,6 +813,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -763,15 +827,16 @@ function getServer() {
       filter: z.enum(["airing", "upcoming", "bypopularity", "favorite"]).optional().describe("Filter for top anime: airing (currently airing), upcoming (not yet aired), bypopularity (most popular), favorite (most favorited)"),
     },
     async (params: { page?: number; limit?: number; filter?: string }) => {
-      try {
-        const queryParams = new URLSearchParams();
-        if (params.page) queryParams.append("page", String(params.page));
-        if (params.filter) queryParams.append("filter", params.filter);
-        queryParams.append("sfw", "true");
+      return withAnalytics("getTopAnime", params, async () => {
+        try {
+          const queryParams = new URLSearchParams();
+          if (params.page) queryParams.append("page", String(params.page));
+          if (params.filter) queryParams.append("filter", params.filter);
+          queryParams.append("sfw", "true");
 
-        const limitParam = params.limit || 25;
-        const apiUrl = `${LOCAL_API_BASE}/clean/top/${limitParam}?${queryParams.toString()}`;
-        const response = await fetch(apiUrl);
+          const limitParam = params.limit || 25;
+          const apiUrl = `${LOCAL_API_BASE}/clean/top/${limitParam}?${queryParams.toString()}`;
+          const response = await fetch(apiUrl);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -830,18 +895,19 @@ function getServer() {
             }, null, 2)
           }],
         };
-      } catch (error: any) {
-        return {
-          content: [{ 
-            type: "text", 
-            text: JSON.stringify({
-              error: true,
-              message: `Failed to fetch top anime: ${error.message || 'An unexpected error occurred'}`
-            }, null, 2)
-          }],
-          isError: true,
-        };
-      }
+        } catch (error: any) {
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                error: true,
+                message: `Failed to fetch top anime: ${error.message || 'An unexpected error occurred'}`
+              }, null, 2)
+            }],
+            isError: true,
+          };
+        }
+      });
     }
   );
 
@@ -853,7 +919,8 @@ function getServer() {
       id: z.number().int().positive().describe("MyAnimeList ID of the anime to get review summary for")
     },
     async (params: { id: number }) => {
-      try {
+      return withAnalytics("getAnimeReviews", params, async () => {
+        try {
         const apiUrl = `${LOCAL_API_BASE}/reviews/${params.id}/summary`;
         const response = await fetch(apiUrl);
 
@@ -903,6 +970,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -919,7 +987,8 @@ function getServer() {
       sort: z.enum(["date", "helpful", "score"]).optional().describe("Sort reviews by: date (newest first), helpful (most helpful first), or score (highest score first)")
     },
     async (params: { id: number; page?: number; limit?: number; preliminary?: boolean; spoilers?: boolean; sort?: string }) => {
-      try {
+      return withAnalytics("getAnimeReviewsDetailed", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         if (params.page) queryParams.append("page", String(params.page));
         if (params.limit) queryParams.append("limit", String(Math.min(params.limit, 10))); // Cap at 10 for context safety
@@ -987,6 +1056,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -999,7 +1069,8 @@ function getServer() {
       limit: z.number().int().positive().max(15).optional().describe("Number of reviews to sample (max 15, default 10)")
     },
     async (params: { id: number; limit?: number }) => {
-      try {
+      return withAnalytics("getAnimeReviewsSample", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         if (params.limit) queryParams.append("limit", String(params.limit));
 
@@ -1053,6 +1124,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1060,10 +1132,11 @@ function getServer() {
   server.tool(
     "getAnimeGenres",
     "List all available anime genres and their IDs. Use before searchAnime for genre filtering.",
-    
+
     {},
     async () => {
-      try {
+      return withAnalytics("getAnimeGenres", {}, async () => {
+        try {
         const response = await fetch(`${LOCAL_API_BASE}/genres`);
         
         if (!response.ok) {
@@ -1101,8 +1174,8 @@ function getServer() {
         };
       } catch (error: any) {
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: JSON.stringify({
               error: true,
               message: `Failed to fetch genres: ${error.message || 'An unexpected error occurred'}`
@@ -1111,6 +1184,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1123,7 +1197,8 @@ function getServer() {
       limit: z.number().int().positive().max(25).optional().describe("Number of results to return (max 25)")
     },
     async (params: { limit?: number }) => {
-      try {
+      return withAnalytics("getCurrentSeasonAnime", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         if (params.limit) queryParams.append("limit", String(params.limit));
 
@@ -1176,6 +1251,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1189,7 +1265,8 @@ function getServer() {
       limit: z.number().int().positive().max(25).optional().describe("Number of results to return (max 25)")
     },
     async (params: { year?: number; season?: string; limit?: number }) => {
-      try {
+      return withAnalytics("getCompactSeasonalRecommendations", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         if (params.year) queryParams.append("year", String(params.year));
         if (params.season) queryParams.append("season", params.season);
@@ -1244,13 +1321,14 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
   server.tool(
     "getSeasonalAnimeRecommendations",
     "Get anime airing in the current or upcoming season, with optional type, SFW, and pagination filters. NOTE: Use getCompactSeasonalRecommendations for better performance.",
-    
+
     {
       season: z.enum(["now", "upcoming"]).describe("Get recommendations for current season ('now') or upcoming season ('upcoming')"),
       filter: z.enum(["tv", "movie", "ova", "special", "ona", "music"]).optional().describe("Filter by anime type"),
@@ -1269,7 +1347,8 @@ function getServer() {
       page?: number;
       limit?: number;
     }) => {
-      try {
+      return withAnalytics("getSeasonalAnimeRecommendations", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         if (params.filter) queryParams.append("filter", params.filter);
         queryParams.append("sfw", String(params.sfw === undefined ? true : params.sfw));
@@ -1322,8 +1401,8 @@ function getServer() {
         }
         
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: JSON.stringify({
               ...data.data,
               search_metadata: {
@@ -1347,8 +1426,8 @@ function getServer() {
         };
       } catch (error: any) {
         return {
-          content: [{ 
-            type: "text", 
+          content: [{
+            type: "text",
             text: JSON.stringify({
               error: true,
               message: `Failed to fetch seasonal anime: ${error.message || 'An unexpected error occurred'}`
@@ -1357,6 +1436,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1367,7 +1447,8 @@ function getServer() {
 
     { id: z.number().int().positive().describe("MyAnimeList ID of the anime to analyze reception for") },
     async ({ id }: { id: number }) => {
-      try {
+      return withAnalytics("getAnimeReception", { id }, async () => {
+        try {
         const response = await fetch(`${LOCAL_API_BASE}/reception/${id}`);
 
         if (!response.ok) {
@@ -1416,6 +1497,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1437,7 +1519,8 @@ function getServer() {
       min_reviews?: number;
       limit?: number
     }) => {
-      try {
+      return withAnalytics("searchByReviewSentiment", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         queryParams.append("sentiment_pattern", params.sentiment_pattern);
         if (params.min_reviews) queryParams.append("min_reviews", String(params.min_reviews));
@@ -1491,6 +1574,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1507,7 +1591,8 @@ function getServer() {
       genre_filter: z.string().optional().describe("Filter by specific genre (genre name)")
     },
     async (params: { insight_type: string; genre_filter?: string }) => {
-      try {
+      return withAnalytics("getReviewInsights", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         queryParams.append("insight_type", params.insight_type);
         if (params.genre_filter) queryParams.append("genre_filter", params.genre_filter);
@@ -1560,6 +1645,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1573,7 +1659,8 @@ function getServer() {
       anime_id_2: z.number().int().positive().describe("MyAnimeList ID of the second anime")
     },
     async (params: { anime_id_1: number; anime_id_2: number }) => {
-      try {
+      return withAnalytics("compareAnimeReception", params, async () => {
+        try {
         const queryParams = new URLSearchParams();
         queryParams.append("anime_id_1", String(params.anime_id_1));
         queryParams.append("anime_id_2", String(params.anime_id_2));
@@ -1626,6 +1713,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
@@ -1639,7 +1727,8 @@ function getServer() {
       compact: z.boolean().optional().default(false).describe("Return ultra-compact format to save tokens (true) or clean detailed format (false)")
     },
     async (params: { ids: number[]; compact?: boolean }) => {
-      try {
+      return withAnalytics("getBulkAnimeByIds", params, async () => {
+        try {
         if (params.ids.length === 0) {
           return {
             content: [{
@@ -1742,6 +1831,7 @@ function getServer() {
           isError: true,
         };
       }
+      });
     }
   );
 
