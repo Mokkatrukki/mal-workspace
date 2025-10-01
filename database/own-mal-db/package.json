@@ -12,6 +12,9 @@
         "db:migrate:reviews": "tsx src/database/migrateReviews.ts",
         "db:seed": "tsx src/scripts/seedGenres.ts",
         "anime": "tsx src/cli/crawler-cli.ts",
+        "repair": "tsx src/scripts/repairAnimeRelationships.ts",
+        "repair:test": "tsx src/scripts/repairAnimeRelationships.ts --test",
+        "repair:verify": "tsx src/scripts/verifyRelationships.ts",
         "mcp": "tsx src/mcp/anime-search.ts",
         "lint": "eslint src/**/*.ts",
         "type-check": "tsc --noEmit"

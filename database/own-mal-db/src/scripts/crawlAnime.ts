@@ -313,7 +313,7 @@ async function storeAnimeGenreRelationships(animeId: number, jikanAnime: any, ch
           'INSERT INTO studios (id, name, url, type) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, url = EXCLUDED.url',
           [studio.mal_id, studio.name, studio.url, 'studio']
         );
-        
+
         // Then create relationship
         await db.query(
           'INSERT INTO anime_studios (anime_id, studio_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',

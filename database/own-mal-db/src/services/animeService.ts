@@ -585,11 +585,12 @@ export class AnimeService {
 
   // Upsert genre
   async upsertGenre(genre: Genre & { type?: string }): Promise<void> {
+    // First, try to update by name (genre names are the real identifier)
+    // This handles when IDs change in the Jikan API
     const query = `
       INSERT INTO genres (id, name, url, count, type)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
+      ON CONFLICT (name) DO UPDATE SET
         url = EXCLUDED.url,
         count = EXCLUDED.count,
         type = EXCLUDED.type,

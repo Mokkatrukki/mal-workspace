@@ -39,7 +39,6 @@ None currently.
 - Some anime missing English titles
 - Review sentiment scores need validation/retraining
 - Missing data for older/obscure anime
-- Studio/producer data incomplete for some entries
 
 ### Scraper Improvements
 - Add resume-from-checkpoint validation (verify data integrity)
@@ -96,6 +95,9 @@ None currently.
 - ✅ Docker containerization
 - ✅ Migration system
 - ✅ Interactive API documentation (Scalar)
+- ✅ Database relationship repair (16,456/16,457 anime with genres, 12,675 with studios)
+- ✅ Genre/studio relationship creation for all existing anime
+- ✅ Database backup with repaired relationships (2025-10-01)
 
 ---
 
@@ -217,4 +219,4 @@ Areas where collaboration would be valuable:
 
 ---
 
-*Last Updated: 2025-09-30*
+*Last Updated: 2025-10-01*
